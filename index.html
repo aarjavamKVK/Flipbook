@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PDF Flipbook</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #f0f0f0;
+      font-family: sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #top-controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px;
+      background: #fff;
+      box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+    }
+
+    #main {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #flipbook {
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+      transform-origin: center center;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .page canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    #nav-buttons {
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 1000px;
+      padding: 0 20px;
+      position: relative;
+    }
+
+    .arrow-button {
+      font-size: 30px;
+      background: #fff;
+      border-radius: 50%;
+      width: 45px;
+      height: 45px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      border: 1px solid #ccc;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .arrow-button:hover {
+      background: #eaeaea;
+    }
+
+    @media (max-width: 768px) {
+      .arrow-button {
+        width: 40px;
+        height: 40px;
+        font-size: 22px;
+      }
+
+      #nav-buttons {
+        padding: 0 10px;
+        max-width: 90vw;
+      }
+    }
+  </style>
+
+  <!-- JS libraries -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+  </script>
+  <script src="js/turn.min.js"></script>
+</head>
+
+<body>
+
+  <!-- Top Controls -->
+  <div id="top-controls">
+    <button onclick="zoomIn()">🔍+</button>
+    <button onclick="zoomOut()">🔍−</button>
+    <button onclick="toggleFullscreen()">🖵 Fullscreen</button>
+  </div>
+
+  <!-- Main Flipbook Section -->
+  <div id="main">
+    <div id="flipbook"></div>
+
+    <!-- Nav Arrows aligned below flipbook -->
+    <div id="nav-buttons">
+      <div class="arrow-button" onclick="prevPage()">❮</div>
+      <div class="arrow-button" onclick="nextPage()">❯</div>
+    </div>
+  </div>
+
+  <!-- Sound -->
+  <audio id="startFlip" src="sounds/start-flip.mp3"></audio>
+  <audio id="endFlip" src="sounds/end-flip.mp3"></audio>
+
+  <script>
+    const pdfPath = 'Aarjavam_Plastic_Products_Catalog.pdf';
+    let zoomLevel = 1;
+    const flipbookContainer = document.getElementById('flipbook');
+
+    function playStartFlipSound() {
+      const audio = document.getElementById("startFlip");
+      audio.currentTime = 0;
+      audio.play();
+    }
+
+    function playEndFlipSound() {
+      const audio = document.getElementById("endFlip");
+      audio.currentTime = 0;
+      audio.play();
+    }
+
+    async function renderPDFPages() {
+      flipbookContainer.innerHTML = '';
+      const pdf = await pdfjsLib.getDocument(pdfPath).promise;
+      const totalPages = pdf.numPages;
+
+      for (let i = 1; i <= totalPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'page';
+        pageDiv.style.width = viewport.width + 'px';
+        pageDiv.style.height = viewport.height + 'px';
+        pageDiv.appendChild(canvas);
+        flipbookContainer.appendChild(pageDiv);
+      }
+
+      $('#flipbook').turn({
+        width: flipbookContainer.firstChild.offsetWidth * 2,
+        height: flipbookContainer.firstChild.offsetHeight,
+        autoCenter: true,
+        elevation: 50,
+        gradients: true,
+        duration: 1000,
+        acceleration: true,
+        when: {
+          turning: function () {
+            playStartFlipSound();
+          },
+          turned: function () {
+            playEndFlipSound();
+          }
+        }
+      });
+
+      applyZoom();
+    }
+
+    function zoomIn() {
+      zoomLevel = Math.min(2, zoomLevel + 0.1);
+      applyZoom();
+    }
+
+    function zoomOut() {
+      zoomLevel = Math.max(0.5, zoomLevel - 0.1);
+      applyZoom();
+    }
+
+    function applyZoom() {
+      flipbookContainer.style.transform = `scale(${zoomLevel})`;
+    }
+
+    function nextPage() {
+      $('#flipbook').turn('next');
+    }
+
+    function prevPage() {
+      $('#flipbook').turn('previous');
+    }
+
+    function toggleFullscreen() {
+      const elem = document.documentElement;
+      if (!document.fullscreenElement) {
+        elem.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    function handleFullscreenChange() {
+      setTimeout(() => {
+        if ($('#flipbook').data('turn')) {
+          $('#flipbook').turn('resize');
+        }
+      }, 200);
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    renderPDFPages();
+  </script>
+
+</body>
+</html>
