@@ -8,15 +8,16 @@
       margin: 0;
       padding: 0;
       height: 100%;
-      overflow: hidden;
       background: #f0f0f0;
+      font-family: sans-serif;
       display: flex;
       flex-direction: column;
-      font-family: sans-serif;
+      align-items: center;
     }
 
     #main {
       flex-grow: 1;
+      width: 100%;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -25,12 +26,12 @@
     }
 
     #flipbook {
-      max-width: 90vw;
-      max-height: 85vh;
-      width: 100%;
+      width: 90vw;
       height: auto;
-      transition: transform 0.3s ease-in-out;
+      max-height: 85vh;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
       transform-origin: center center;
+      transition: transform 0.3s ease-in-out;
     }
 
     .page canvas {
@@ -42,43 +43,50 @@
       overflow: hidden;
     }
 
-    .nav-btn {
-      position: absolute;
-      bottom: 20px;
-      font-size: 28px;
-      background: white;
+    #nav-buttons {
+      margin-top: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      font-size: 20px;
+      padding: 8px 14px;
+      background-color: #ffffff;
       border: none;
-      border-radius: 50%;
-      width: 48px;
-      height: 48px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
       cursor: pointer;
-      z-index: 100;
+      transition: background 0.2s;
     }
 
-    #prevBtn {
-      left: 5%;
-    }
-
-    #nextBtn {
-      right: 5%;
+    .btn:hover {
+      background-color: #e0e0e0;
     }
 
     @media (max-width: 768px) {
       #flipbook {
-        max-width: 100vw;
-        max-height: 70vh;
+        width: 100vw;
+        max-height: 75vh;
       }
-      .nav-btn {
-        bottom: 10px;
-        width: 42px;
-        height: 42px;
-        font-size: 22px;
+
+      #nav-buttons {
+        gap: 10px;
+        margin-top: 4px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        font-size: 16px;
+        padding: 6px 10px;
       }
     }
   </style>
 
-  <!-- Libraries -->
+  <!-- JS Libraries -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script>
@@ -91,10 +99,18 @@
 
   <div id="main">
     <div id="flipbook"></div>
-    <button class="nav-btn" id="prevBtn" onclick="prevPage()">&#x25C0;</button>
-    <button class="nav-btn" id="nextBtn" onclick="nextPage()">&#x25B6;</button>
   </div>
 
+  <!-- Navigation Buttons -->
+  <div id="nav-buttons">
+    <button class="btn" onclick="prevPage()">⬅</button>
+    <button class="btn" onclick="zoomIn()">🔍+</button>
+    <button class="btn" onclick="zoomOut()">🔍−</button>
+    <button class="btn" onclick="toggleFullscreen()">🖵 Fullscreen</button>
+    <button class="btn" onclick="nextPage()">➡</button>
+  </div>
+
+  <!-- Flip Sounds -->
   <audio id="startFlip" src="sounds/start-flip.mp3"></audio>
   <audio id="endFlip" src="sounds/end-flip.mp3"></audio>
 
@@ -145,6 +161,22 @@
           turned: function () { playEndFlipSound(); }
         }
       });
+
+      applyZoom(); // Ensure zoom applied after rendering
+    }
+
+    function zoomIn() {
+      zoomLevel = Math.min(2, zoomLevel + 0.1);
+      applyZoom();
+    }
+
+    function zoomOut() {
+      zoomLevel = Math.max(0.5, zoomLevel - 0.1);
+      applyZoom();
+    }
+
+    function applyZoom() {
+      flipbookContainer.style.transform = `scale(${zoomLevel})`;
     }
 
     function nextPage() {
@@ -154,6 +186,25 @@
     function prevPage() {
       $('#flipbook').turn('previous');
     }
+
+    function toggleFullscreen() {
+      const elem = document.documentElement;
+      if (!document.fullscreenElement) {
+        elem.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    function handleFullscreenChange() {
+      setTimeout(() => {
+        if ($('#flipbook').data('turn')) {
+          $('#flipbook').turn('resize');
+        }
+      }, 300);
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     renderPDFPages();
   </script>
